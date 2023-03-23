@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data @NoArgsConstructor @AllArgsConstructor @Builder
-public class FileListVO {
-	private int no;
-	private String name;
+public class FileItemVO {
+	String filename;
+	long filesize;
 }
