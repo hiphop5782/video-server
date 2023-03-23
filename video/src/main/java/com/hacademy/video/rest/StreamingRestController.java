@@ -1,6 +1,7 @@
 package com.hacademy.video.rest;
 
 import java.io.File;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,9 +43,10 @@ public class StreamingRestController {
 	
 	@GetMapping("/play/{directory}")
 	public String[] directory(@PathVariable int directory) {
-		File target = new File(props.getPath(), getDirectory(directory));
+		FileListVO vo = repo.selectOne(directory);
+		File target = new File(props.getPath(), vo.getName());
 		if(target.isDirectory())
-			return target.list();
+			return target.list((dir, name)->new File(dir, name).isFile());
 		return null;
 	}
 
@@ -53,20 +55,14 @@ public class StreamingRestController {
 			@RequestHeader HttpHeaders headers,
 			@PathVariable int directory,
 			@PathVariable String filename) throws IOException {
-		File dir = new File(props.getPath(), getDirectory(directory));
+		FileListVO vo = repo.selectOne(directory);
+		File dir = new File(props.getPath(), vo.getName());
 		File target = new File(dir, filename);
 		Resource resource = new FileSystemResource(target);	
 		ResourceRegion region = createResourceRegion(resource, headers);
 		return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
 										.contentType(MediaTypeFactory.getMediaType(resource).orElse(MediaType.APPLICATION_OCTET_STREAM))
 										.body(region);
-	}
-	
-	private String getDirectory(int directory) {
-		return switch(directory) {
-		case 1 -> "kh11";
-		default -> "";
-		};
 	}
 	
 	private ResourceRegion createResourceRegion(
