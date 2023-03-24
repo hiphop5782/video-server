@@ -1,9 +1,7 @@
 package com.hacademy.video.rest;
 
 import java.io.File;
-import java.io.FilenameFilter;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +24,7 @@ import com.hacademy.video.configuration.FileProperties;
 import com.hacademy.video.repository.FileRepository;
 import com.hacademy.video.vo.FileListVO;
 
-@CrossOrigin
+@CrossOrigin(origins = {"http://video.sysout.co.kr", "https://video.sysout.co.kr", "http://127.0.0.1:5500"})
 @RestController
 public class StreamingRestController {
 	

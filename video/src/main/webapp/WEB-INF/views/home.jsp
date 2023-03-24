@@ -47,7 +47,23 @@
 		}
 		.video-container .video-player {
 			width:100%;
-			height:100%;
+			max-height:500px;
+		}
+		.vjs-poster img {
+			object-fit:cover;
+		}
+		.video-js.vjs-fluid,
+		.video-js.vjs-16-9,
+		.video-js.vjs-4-3,
+		video.video-js,
+		video.vjs-tech {
+			max-height: calc(100vh - 120px);
+			position: relative !important;
+			width: 100%;
+			height: auto !important;
+			max-width: 100% !important;
+			padding-top: 0 !important;
+			line-height: 0;
 		}
 	</style>
 </head>
@@ -82,13 +98,12 @@
 				<div class="col">
 					<h2>
 						{{currentVideo}}
-<!-- 						({{position}}/{{duration}}) -->
+						<button type="button" class="btn btn-outline-secondary me-2" @click="ss">처음</button>
+						<button type="button" class="btn btn-outline-secondary me-2" @click="rr(10)">-10s</button>
+						<button type="button" class="btn btn-outline-secondary me-2" @click="rr(5)">-5s</button>
+						<button type="button" class="btn btn-outline-secondary me-2" @click="ff(5)">+5s</button>
+						<button type="button" class="btn btn-outline-secondary me-2" @click="ff(10)">+10s</button>						
 					</h2>
-					<button type="button" class="btn btn-outline-secondary me-2" @click="ss">처음</button>
-					<button type="button" class="btn btn-outline-secondary me-2" @click="rr(10)">-10s</button>
-					<button type="button" class="btn btn-outline-secondary me-2" @click="rr(5)">-5s</button>
-					<button type="button" class="btn btn-outline-secondary me-2" @click="ff(5)">+5s</button>
-					<button type="button" class="btn btn-outline-secondary me-2" @click="ff(10)">+10s</button>
 				</div>
 			</div>
 		</div>
