@@ -1,3 +1,7 @@
+if(location.protocol == 'https:') {
+	location.href = location.href.replace('https', 'http');
+}
+
 //const context = "http://localhost:8080";
 const context = "http://khds-c.iptime.org:30000";
 Vue.createApp({
