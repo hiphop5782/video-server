@@ -1,4 +1,5 @@
 if(location.protocol == 'https:') {
+	window.alert('https로 접속하시면 영상이 나오지 않으니 참고 바랍니다');
 	location.href = location.href.replace('https', 'http');
 }
 
