@@ -19,7 +19,9 @@ Vue.createApp({
 	},
 	methods:{
 		async loadVideos() {
-			const response = await axios.get(context+"/play/1");
+			const url = context + "/play/1";
+			console.log(url);
+			const response = await axios.get(url);
 			this.videos = response.data;
 		},
 		selectVideo(index) {
