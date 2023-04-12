@@ -17,7 +17,7 @@ public class FileRepository {
 
 	public List<FileListVO> selectList() {
 		List<FileListVO> list = new ArrayList<>();
-		list.add(FileListVO.builder().no(1).name("영상").build());
+		list.add(FileListVO.builder().no(1).name("").build());
 		return list;
 	}
 	
