@@ -3,8 +3,18 @@ if(location.protocol == 'https:') {
 	location.href = location.href.replace('https', 'http');
 }
 
-//const context = "http://localhost:8080";
-const context = "http://khds-c.iptime.org:30000";
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js'
+
+// If you enabled Analytics in your project, add the Firebase SDK for Google Analytics
+import { getAnalytics } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-analytics.js'
+
+// Add Firebase products that you want to use
+import { GithubAuthProvider, getAuth, signInWithPopup } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js'
+import { getFirestore } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js'
+
+
+const context = "http://localhost:30000";
+// const context = "http://khds-c.iptime.org:30000";
 Vue.createApp({
 	data(){
 		return {
@@ -13,6 +23,10 @@ Vue.createApp({
 			player:null,
 			duration:null,
 			keyword:"",
+			provider:null,
+			auth:null,
+			user:null,
+			token:null,
 		};
 	},
 	computed:{
@@ -23,12 +37,6 @@ Vue.createApp({
 		},
 	},
 	methods:{
-		async loadVideos() {
-			const url = context + "/play/1";
-			console.log(url);
-			const response = await axios.get(url);
-			this.videos = response.data;
-		},
 		selectVideo(index) {
 			this.currentVideo = this.searchResults[index];
 		},
@@ -49,10 +57,25 @@ Vue.createApp({
 				case 39: this.ff(10); break;
 			};
 		}, 100),
+		async githubSignIn(){
+			const response = await signInWithPopup(this.auth, this.provider);
+			//console.log(response.user.reloadUserInfo.screenName);
+			//console.log(response.user);
+			this.user = response.user;
+
+			const response2 = await axios.get(`${context}/data`, {
+				headers:{
+					user:response.user.reloadUserInfo.screenName
+				}
+			});
+			this.videos = response2.data;
+			this.token = response2.headers["token"];
+		},
+
 	},
 	watch:{
 		currentVideo(value){
-			this.player.src({type:'video/mp4', src:context+`/play/1/${value}`});
+			this.player.src({type:'video/mp4', src:`${context}/play/${this.token}/${value}`});
 			this.player.play();
 			this.player.one("loadedmetadata", ()=>{
 				this.duration = this.player.duration();
@@ -60,7 +83,21 @@ Vue.createApp({
 		},
 	},
 	created(){
-		this.loadVideos();
+		const firebaseConfig = {
+			apiKey: "AIzaSyBMVq-lq8w-YHP7X8gd6kU3lh0g2mf-4qo",
+			authDomain: "hacademy-3a057.firebaseapp.com",
+			projectId: "hacademy-3a057",
+			storageBucket: "hacademy-3a057.appspot.com",
+			messagingSenderId: "661336156675",
+			appId: "1:661336156675:web:3b2b75f429e5c6b8f3fc36",
+			measurementId: "G-DXQ1WQ5DL2"
+		};
+
+		const app = initializeApp(firebaseConfig);
+		const analytics = getAnalytics(app);
+
+		this.provider = new GithubAuthProvider();
+		this.auth = getAuth();
 	},
 	mounted(){
 		this.player = videojs("video-player", {

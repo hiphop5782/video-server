@@ -26,6 +26,14 @@
 			    		<input type="text" class="form-control" placeholder="검색어 입력" autocomplete="off" v-model="keyword" @input="keyword = $event.target.value">
 			    	</div>
 			    </div>
+				<div class="row" v-if="this.user == null">
+					<div class="col pt-1 pb-1 pe-4">
+						<button class="btn btn-outline-primary w-100" @click="githubSignIn">
+							<i class="fa-brands fa-github"></i>
+							Github 로그인
+						</button>						
+					</div>
+				</div>
 		    </div>
 <!-- 		    <div class="list-group list-group-flush border-bottom scrollarea" v-for="(video, index) in videos" :key="index"> -->
 			<div class="list-group list-group-flush border-bottom scrollarea" v-for="(video, index) in searchResults" :key="index">
@@ -62,6 +70,6 @@
 	<script src="https://unpkg.com/vue@3"></script>
 	<script src="https://vjs.zencdn.net/8.0.4/video.min.js"></script>
 	<script src="./js/sidebars.js"></script>
-	<script src="./js/main.js"></script>
+	<script src="./js/main.js" type="module"></script>
 </body>
 </html>
