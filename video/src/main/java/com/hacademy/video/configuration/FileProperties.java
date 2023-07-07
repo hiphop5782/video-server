@@ -8,11 +8,16 @@ import org.springframework.stereotype.Component;
 import jakarta.annotation.PostConstruct;
 import lombok.Data;
 
-@Data
 @Component
 @ConfigurationProperties(prefix = "custom.file")
 public class FileProperties {
 	private String path;
+	public void setPath(String path) {
+		this.path = path;
+	}
+	public String getPath() {
+		return path;
+	}
 	
 	@PostConstruct
 	public void init() {

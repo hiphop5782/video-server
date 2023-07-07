@@ -17,7 +17,10 @@ public class FileRepository {
 
 	public List<FileListVO> selectList() {
 		List<FileListVO> list = new ArrayList<>();
-		list.add(FileListVO.builder().no(1).name("").build());
+		FileListVO vo = new FileListVO();
+		vo.setNo(1);
+		vo.setName("");
+		list.add(vo);
 		return list;
 	}
 	
