@@ -20,7 +20,9 @@ import com.hacademy.video.repository.FileRepository;
 import com.hacademy.video.service.GithubRestService;
 
 import jakarta.servlet.http.HttpSession;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestController
 public class StreamingRestController {
 	
@@ -39,12 +41,13 @@ public class StreamingRestController {
 	public ResponseEntity<String[]> data(@RequestHeader String user,HttpSession session) {
 		String token = UUID.randomUUID().toString();
 		tokens.put(token, user);
+		log.debug("user = {}, token = {}", user, token);
 		return ResponseEntity.ok()
 						.header("token", token)
 					.body(service.findRepositoryVideo(user));
 	}
 	
-	@GetMapping("/play/{token}/{video:.+}")
+	@GetMapping("/play/{token}/{video:.+}") 
 	public ResponseEntity<ResourceRegion> play(
 			@RequestHeader HttpHeaders headers,
 			@PathVariable String token,

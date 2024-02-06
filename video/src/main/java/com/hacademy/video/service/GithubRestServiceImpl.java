@@ -70,7 +70,7 @@ public class GithubRestServiceImpl implements GithubRestService{
 		for(String repositoryName : githubProps.getRepositories()) {
 			List<GithubCollaboratorVO> collaborators = loadCollaborators(repositoryName);
 			users.put(repositoryName, collaborators);
-//			log.info("저장소({}) - {} 유저 추가 완료", repositoryName, collaborators.size());
+			log.info("저장소({}) - {} 유저 추가 완료", repositoryName, collaborators.size());
 		}
 	}
 	
@@ -110,9 +110,13 @@ public class GithubRestServiceImpl implements GithubRestService{
 	@Override
 	public String findRepository(String user) {
 		for(String repository : users.keySet()) {
+			log.info("repository = {}", repository);
 			List<GithubCollaboratorVO> list = users.get(repository);
+			log.info("user count = {}", list.size());
 			for(GithubCollaboratorVO vo : list) {
-				if(vo.getLogin().equals(user)) {
+				log.info("vo = {}", vo);
+				if(vo.getId().equals(user)) {
+					log.info("- user find ... {}/{}", vo.getId(), user);
 					return repository;
 				}
 			}
