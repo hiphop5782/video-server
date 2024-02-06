@@ -62,12 +62,13 @@ Vue.createApp({
 		async githubSignIn(){
 			const response = await signInWithPopup(this.auth, this.provider);
 			//console.log(response.user.reloadUserInfo.screenName);
-			console.log(response.user);
+			//console.log(response.user);
 			this.user = response.user;
 
 			const response2 = await axios.get(`${context}/data`, {
 				headers:{
-					user:response.user.reloadUserInfo.screenName
+					//user:response.user.reloadUserInfo.screenName
+					user:response.user.providerData[0].uid
 				}
 			});
 			this.videos = response2.data;
