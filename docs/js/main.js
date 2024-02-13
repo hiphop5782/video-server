@@ -18,7 +18,8 @@ import { getFirestore } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase
 
 
 // const context = "http://localhost:30000";
-const context = "http://khds-c.iptime.org:30000";
+//const context = "http://khds-c.iptime.org:30000";
+const context = "//khds-c.iptime.org:30000";
 Vue.createApp({
 	data(){
 		return {
