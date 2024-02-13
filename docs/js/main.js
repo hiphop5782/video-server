@@ -1,11 +1,11 @@
-/*
+
 if(location.protocol == 'https:') {
 	window.alert('https로 접속하시면 영상이 나오지 않으니 참고 바랍니다');
 	//location.href = location.href.replace('https', 'http');
 	const url = "http" + location.href.substring('https'.length);
 	location.href = url;
 }
-*/
+
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js'
 
