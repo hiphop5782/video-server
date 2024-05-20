@@ -88,6 +88,7 @@ public class GithubRestServiceImpl implements GithubRestService{
 		List<GithubCollaboratorVO> userList = users.get(repository);
 //		log.info("userList = {}", userList);
 		for(GithubCollaboratorVO vo : userList) {
+			System.out.println(vo.getLogin()+", " + user);
 			if(vo.getLogin().equals(user)) {
 				return true; 
 			}
@@ -110,11 +111,11 @@ public class GithubRestServiceImpl implements GithubRestService{
 	@Override
 	public String findRepository(String user) {
 		for(String repository : users.keySet()) {
-			log.info("repository = {}", repository);
+			//log.info("repository = {}", repository);
 			List<GithubCollaboratorVO> list = users.get(repository);
-			log.info("user count = {}", list.size());
+			//log.info("user count = {}", list.size());
 			for(GithubCollaboratorVO vo : list) {
-				log.info("vo = {}", vo);
+				//log.info("vo = {}", vo);
 				if(vo.getId().equals(user)) {
 					log.info("- user find ... {}/{}", vo.getId(), user);
 					return repository;

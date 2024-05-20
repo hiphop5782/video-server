@@ -13,8 +13,8 @@ public class GithubRestConfiguration {
 	
 	@Bean
 	public WebClient webClient() {
-		System.out.println(props);
-		System.out.println(props.getToken());
+//		System.out.println(props);
+//		System.out.println(props.getToken());
 		return WebClient.builder()
 						.baseUrl(props.getBaseUrl())
 						.defaultHeader("Authorization", "Bearer "+props.getToken())

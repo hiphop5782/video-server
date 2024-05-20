@@ -37,6 +37,11 @@ public class StreamingRestController {
 	
 	private Map<String, String> tokens = Collections.synchronizedMap(new HashMap<>());
 
+	@GetMapping("/")
+	public String home() {
+		return "Video server is running";
+	}
+	
 	@GetMapping("/data")
 	public ResponseEntity<String[]> data(@RequestHeader String user,HttpSession session) {
 		String token = UUID.randomUUID().toString();
