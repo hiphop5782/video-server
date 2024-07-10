@@ -59,6 +59,11 @@
                     <button type="button" class="btn btn-outline-secondary me-2" @click="ff(10)">+10s</button>						
 				</div>
 			</div>
+			<div class="row mt-2" v-if="currentVideo != null">
+				<div class="col">
+					<div class="vjs-playback-rate"></div>
+				</div>
+			</div>
 		</div>
 	</div>
 	
