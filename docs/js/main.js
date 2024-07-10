@@ -114,6 +114,7 @@ Vue.createApp({
 			loop:false,
 			preload:"auto",
 			fill:true,
+			playbackRates:[1,1.2,1.5,2]
 		});
 		window.addEventListener("keydown", this.keyHandler);
 	},
