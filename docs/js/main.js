@@ -56,6 +56,9 @@ Vue.createApp({
 		rr(value){
 			this.player.currentTime(this.player.currentTime() - value);
 		},
+		speed(value) {
+			this.player.playbackRate(value);
+		},
 		keyHandler:_.throttle(function(e){
 			if(this.currentVideo == null) return;
 			

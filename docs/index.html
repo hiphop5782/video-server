@@ -61,7 +61,10 @@
 			</div>
 			<div class="row mt-2" v-if="currentVideo != null">
 				<div class="col">
-					<div class="vjs-playback-rate"></div>
+					<button type="button" class="btn btn-outline-secondary me-2" @click="speed(1)">x1</button>
+                    <button type="button" class="btn btn-outline-secondary me-2" @click="speed(1.2)">x1.2</button>
+                    <button type="button" class="btn btn-outline-secondary me-2" @click="speed(1.5)">x1.5</button>
+                    <button type="button" class="btn btn-outline-secondary me-2" @click="speed(2)">x2</button>
 				</div>
 			</div>
 		</div>
