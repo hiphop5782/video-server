@@ -62,3 +62,10 @@ video.vjs-tech {
     line-height: 0;
 }
 
+
+/* 풀스크린 모드에서 max-height를 제거 */
+.video-js.vjs-fullscreen {
+    max-height: none !important; /* 풀스크린에서는 최대 높이를 제한하지 않음 */
+    width: 100% !important; /* 풀스크린에서도 100% 크기 */
+    height: 100% !important; /* 풀스크린에서 높이도 100% */
+}
