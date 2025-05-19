@@ -140,13 +140,29 @@ public class GithubRestServiceImpl implements GithubRestService{
 	@Override
 	public ResponseEntity<ResourceRegion> getVideo(HttpHeaders headers, String user, String video) throws IOException {
 		String repo = findRepository(user);
+		if(repo == null) 
+			return ResponseEntity.notFound().build();
+		
 		File directory = new File(fileProps.getPath(), repo);
 		File target = new File(directory, video);
+		if(!target.exists())
+			return ResponseEntity.notFound().build();
+		
 		Resource resource = new FileSystemResource(target);	
 		ResourceRegion region = createResourceRegion(resource, headers);
-		return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
-										.contentType(MediaTypeFactory.getMediaType(resource).orElse(MediaType.APPLICATION_OCTET_STREAM))
-										.body(region);
+		
+		// Content-Type 추론
+	    MediaType mediaType = MediaTypeFactory.getMediaType(resource)
+	            .orElse(MediaType.APPLICATION_OCTET_STREAM);
+
+		
+	    return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
+	            .header(HttpHeaders.CONTENT_TYPE, mediaType.toString())
+	            .header(HttpHeaders.ACCEPT_RANGES, "bytes")
+	            .header("Access-Control-Allow-Origin", "*")
+	            .header("Access-Control-Expose-Headers", "Content-Range, Accept-Ranges, Content-Length")
+	            .header("Connection", "keep-alive")  // 끊김 방지
+	            .body(region);
 	}
 	
 	private ResourceRegion createResourceRegion(

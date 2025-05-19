@@ -16,7 +16,8 @@ public class CorsConfiguration implements WebMvcConfigurer{
 							"http://localhost:5501", 
 							"http://127.0.0.1:5500"		
 					)
-					.exposedHeaders("token");
+					.allowedMethods("GET", "HEAD", "OPTIONS")
+					.exposedHeaders("Content-Range", "Accept-Ranges", "Content-Length", "token");
 	}
 }
 
