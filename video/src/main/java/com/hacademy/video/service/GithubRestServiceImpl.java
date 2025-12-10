@@ -1,7 +1,10 @@
 package com.hacademy.video.service;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -19,6 +22,7 @@ import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StreamUtils;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -30,6 +34,7 @@ import com.hacademy.video.configuration.GithubRestProperties;
 import com.hacademy.video.vo.GithubCollaboratorVO;
 
 import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -137,14 +142,29 @@ public class GithubRestServiceImpl implements GithubRestService{
 		return null;
 	}
 	
+	@Autowired
+	private org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter handlerAdapter;
+	
 	@Override
 	public ResponseEntity<ResourceRegion> getVideo(HttpHeaders headers, String user, String video) throws IOException {
+		 // --- 디버깅 코드 시작 ---
+	    System.out.println("--- [DEBUG] 실제 요청 시점의 활성화된 컨버터 목록 ---");
+	    handlerAdapter.getMessageConverters().forEach(converter -> {
+	        System.out.println(converter.getClass().getName());
+	    });
+	    System.out.println("----------------------------------------------------");
+	    // --- 디버깅 코드 끝 ---
+		
+		
 		String repo = findRepository(user);
+		System.out.println("repo = " + repo);
 		if(repo == null) 
 			return ResponseEntity.notFound().build();
 		
 		File directory = new File(fileProps.getPath(), repo);
 		File target = new File(directory, video);
+		System.out.println("[directory] "+directory);
+		System.out.println("[target"+ ", "+target.exists()+"] " + target);
 		if(!target.exists())
 			return ResponseEntity.notFound().build();
 		
@@ -181,6 +201,60 @@ public class GithubRestServiceImpl implements GithubRestService{
 			long rangeLength = Long.min(chunkSize, contentLength);
 			return new ResourceRegion(resource, 0, rangeLength);
 		}
+	}
+	
+	@Override
+	public void getVideo2(HttpHeaders headers, HttpServletResponse response, String user, String video) throws IOException {
+	    String repo = findRepository(user);
+	    if (repo == null) {
+	        response.sendError(HttpServletResponse.SC_NOT_FOUND);
+	        return;
+	    }
+
+	    File directory = new File(fileProps.getPath(), repo);
+	    File target = new File(directory, video);
+	    if (!target.exists()) {
+	        response.sendError(HttpServletResponse.SC_NOT_FOUND);
+	        return;
+	    }
+
+	    Resource resource = new FileSystemResource(target);
+	    long contentLength = resource.contentLength();
+	    MediaType mediaType = MediaTypeFactory.getMediaType(resource).orElse(MediaType.APPLICATION_OCTET_STREAM);
+
+	    HttpRange range = headers.getRange().stream().findFirst().orElse(null);
+
+	    // 응답 헤더 설정
+	    response.setContentType(mediaType.toString());
+	    response.setHeader(HttpHeaders.ACCEPT_RANGES, "bytes");
+
+	    if (range != null) {
+	        // Range 요청 처리
+	        long start = range.getRangeStart(contentLength);
+	        long end = range.getRangeEnd(contentLength);
+	        long rangeLength = end - start + 1;
+
+	        response.setStatus(HttpServletResponse.SC_PARTIAL_CONTENT);
+	        response.setHeader(HttpHeaders.CONTENT_RANGE, "bytes " + start + "-" + end + "/" + contentLength);
+	        response.setHeader(HttpHeaders.CONTENT_LENGTH, String.valueOf(rangeLength));
+
+	        // try-with-resources 구문으로 안전하게 스트림 처리
+	        try (InputStream inputStream = new FileInputStream(target);
+	             OutputStream outputStream = response.getOutputStream()) {
+	            inputStream.skip(start);
+	            StreamUtils.copyRange(inputStream, outputStream, 0, rangeLength - 1);
+	        }
+	    } else {
+	        // 전체 파일 요청 처리
+	        response.setStatus(HttpServletResponse.SC_OK);
+	        response.setHeader(HttpHeaders.CONTENT_LENGTH, String.valueOf(contentLength));
+
+	        // try-with-resources 구문으로 안전하게 스트림 처리
+	        try (InputStream inputStream = new FileInputStream(target);
+	             OutputStream outputStream = response.getOutputStream()) {
+	            StreamUtils.copy(inputStream, outputStream);
+	        }
+	    }
 	}
 	
 }

@@ -11,6 +11,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.hacademy.video.vo.GithubCollaboratorVO;
 
+import jakarta.servlet.http.HttpServletResponse;
+
 public interface GithubRestService {
 	List<GithubCollaboratorVO> loadCollaborators(String repo) throws JsonMappingException, JsonProcessingException;
 	void loadCollaborators() throws JsonMappingException, JsonProcessingException;
@@ -18,4 +20,5 @@ public interface GithubRestService {
 	String findRepository(String user);
 	String[] findRepositoryVideo(String user);
 	ResponseEntity<ResourceRegion> getVideo(HttpHeaders headers, String user, String video) throws IOException;
+	void getVideo2(HttpHeaders headers, HttpServletResponse response, String user, String video) throws IOException;
 }

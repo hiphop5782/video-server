@@ -1,0 +1,1 @@
+openssl pkcs12 -export -out video-api.sysout.co.kr.p12 -inkey video-api.sysout.co.kr-key.pem -in video-api.sysout.co.kr-chain.pem -name "video-api.sysout.co.kr"

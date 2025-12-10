@@ -7,7 +7,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.support.ResourceRegion;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,6 +18,7 @@ import com.hacademy.video.configuration.FileProperties;
 import com.hacademy.video.repository.FileRepository;
 import com.hacademy.video.service.GithubRestService;
 
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
 
@@ -47,23 +47,42 @@ public class StreamingRestController {
 		String token = UUID.randomUUID().toString();
 		tokens.put(token, user);
 		log.debug("user = {}, token = {}", user, token);
+		System.out.println("[data] user = " + user);
 		return ResponseEntity.ok()
 						.header("token", token)
 					.body(service.findRepositoryVideo(user));
 	}
 	
+//	@GetMapping("/play/{token}/{video:.+}") 
+//	public ResponseEntity<?> play(
+//			@RequestHeader HttpHeaders headers,
+//			@PathVariable String token,
+//			@PathVariable String video,
+//			HttpSession session, 
+//			HttpServletResponse response) throws IOException {
+//		String user = tokens.get(token);
+//		System.out.println("[play] user = " + user);
+//		if(user == null) {
+//			return ResponseEntity.status(403).build();
+//		}
+//		
+//		return service.getVideo(headers, user, video);
+//	}
+	
 	@GetMapping("/play/{token}/{video:.+}") 
-	public ResponseEntity<ResourceRegion> play(
+	public void play(
 			@RequestHeader HttpHeaders headers,
 			@PathVariable String token,
 			@PathVariable String video,
-			HttpSession session) throws IOException {
+			HttpSession session, 
+			HttpServletResponse response) throws IOException {
 		String user = tokens.get(token);
+		System.out.println("[play] user = " + user);
 		if(user == null) {
-			return ResponseEntity.status(403).build();
+			response.sendError(403);
 		}
 		
-		return service.getVideo(headers, user, video);
+		service.getVideo2(headers, response, user, video);
 	}
 	
 }
