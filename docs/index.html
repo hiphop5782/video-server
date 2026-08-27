@@ -37,11 +37,19 @@
 				</div>
 		    </div>
 <!-- 		    <div class="list-group list-group-flush border-bottom scrollarea" v-for="(video, index) in videos" :key="index"> -->
-			<div class="list-group list-group-flush border-bottom scrollarea" v-for="(video, index) in searchResults" :key="index">
-				<div class="list-group-item list-group-item-action py-3 lh-tight" @click="selectVideo(video)" :class="{active:currentVideo == video}" :title="video">
-					<i class="fa-regular fa-circle-play me-2"></i>{{displayName(video)}}
-		      	</div>
-		    </div>
+			<div v-if="user && loading" class="list-message"><span class="spinner-border spinner-border-sm"></span> 영상 목록을 불러오는 중입니다</div>
+			<div v-else-if="user && videos.length === 0" class="list-message"><i class="fa-regular fa-folder-open"></i><strong>조회된 영상이 없습니다</strong><small>잠시 후 다시 시도하거나 관리자에게 문의해 주세요.</small><button class="btn btn-sm btn-outline-primary" @click="loadVideos">다시 조회</button></div>
+			<div v-else-if="user && searchResults.length === 0" class="list-message"><i class="fa-solid fa-magnifying-glass"></i><strong>검색 결과가 없습니다</strong><small>다른 검색어로 찾아보세요.</small><button class="btn btn-sm btn-outline-secondary" @click="clearSearch">검색 초기화</button></div>
+			<div v-else class="virtual-list" ref="virtualList" @scroll="handleListScroll">
+				<div class="virtual-spacer" :style="{height: virtualTotalHeight + 'px'}">
+					<div v-for="row in virtualRows" :key="row.video" class="virtual-row" :style="{transform: `translateY(${row.top}px)`}">
+						<button class="list-group-item list-group-item-action lh-tight" @click="selectVideo(row.video)" :class="{active:currentVideo === row.video}" :title="row.video">
+							<i class="fa-regular fa-circle-play me-2"></i><span>{{displayName(row.video)}}</span><small v-if="progressPercent(row.video) > 0">{{progressPercent(row.video)}}%</small>
+							<span v-if="progressPercent(row.video) > 0" class="item-progress" :style="{width: progressPercent(row.video) + '%'}"></span>
+						</button>
+					</div>
+				</div>
+			</div>
 		</div>
 		<div class="video-container">
 			<div v-if="errorMessage" class="alert alert-danger d-flex justify-content-between"><span>{{errorMessage}}</span><button class="btn btn-sm btn-outline-danger" @click="loadVideos">다시 시도</button></div>
@@ -50,6 +58,7 @@
 			    id="video-player"
 			    poster="./image/hacademy.png"
 			  ></video>
+			<div v-if="user && !loading && !currentVideo && videos.length" class="player-message"><i class="fa-regular fa-circle-play"></i><strong>재생할 영상을 선택해 주세요</strong><span>왼쪽 목록에서 원하는 영상을 고를 수 있습니다.</span></div>
 			<div class="row mt-4" v-if="currentVideo != null">
 				<div class="col">
 					<h2>
@@ -68,8 +77,11 @@
                     <button type="button" class="btn btn-outline-secondary me-2" @click="speed(1.2)">x1.2</button>
                     <button type="button" class="btn btn-outline-secondary me-2" @click="speed(1.5)">x1.5</button>
                     <button type="button" class="btn btn-outline-secondary me-2" @click="speed(2)">x2</button>
+					<button v-if="nextVideo" type="button" class="btn btn-primary me-2" @click="playNext"><i class="fa-solid fa-forward-step me-1"></i>다음 영상</button>
 				</div>
 			</div>
+			<div v-if="currentVideo" class="progress mt-3" role="progressbar" :aria-valuenow="currentProgress" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" :style="{width: currentProgress + '%'}">{{currentProgress}}%</div></div>
+			<div v-if="currentVideo" class="form-check form-switch mt-3"><input id="auto-next" class="form-check-input" type="checkbox" v-model="autoPlayNext"><label class="form-check-label" for="auto-next">영상 종료 후 다음 영상 자동 재생</label></div>
 			<p v-if="currentVideo" class="shortcut-hint mt-3"><kbd>←</kbd> <kbd>→</kbd> 키로 10초 이동</p>
 		</div>
 	</div>

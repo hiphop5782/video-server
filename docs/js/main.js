@@ -38,16 +38,39 @@ Vue.createApp({
 			loading:false,
 			errorMessage:"",
 			playbackRate:1,
+			listScrollTop:0,
+			listViewportHeight:600,
+			listItemHeight:52,
+			progressByVideo:{},
+			currentProgress:0,
+			autoPlayNext:localStorage.getItem('video-player:auto-next') !== 'false',
 		};
 	},
 	computed:{
 		searchResults() {
-			if(this.keyword.length == 0) return this.videos;
-			const keyword = this.keyword.normalize('NFKC').toLocaleLowerCase('ko-KR').replace(/\s+/g, ' ').trim();
-			return this.videos.filter(video=>video.normalize('NFKC').toLocaleLowerCase('ko-KR').includes(keyword));
+			const terms = this.normalizeSearch(this.keyword).split(' ').filter(Boolean);
+			if(!terms.length) return this.videos;
+			return this.videos.filter(video=>{
+				const target = this.normalizeSearch(this.displayName(video));
+				return terms.every(term=>target.includes(term));
+			});
+		},
+		virtualTotalHeight(){ return this.searchResults.length * this.listItemHeight; },
+		virtualRows(){
+			const overscan = 5;
+			const start = Math.max(0, Math.floor(this.listScrollTop / this.listItemHeight) - overscan);
+			const count = Math.ceil(this.listViewportHeight / this.listItemHeight) + overscan * 2;
+			return this.searchResults.slice(start,start+count).map((video,index)=>({video,top:(start+index)*this.listItemHeight}));
+		},
+		nextVideo(){
+			const index=this.videos.indexOf(this.currentVideo);
+			return index>=0 && index<this.videos.length-1 ? this.videos[index+1] : null;
 		},
 	},
 	methods:{
+		normalizeSearch(value){ return String(value||'').normalize('NFKC').toLocaleLowerCase('ko-KR').replace(/[_\-.]+/g,' ').replace(/\s+/g,' ').trim(); },
+		handleListScroll(event){ this.listScrollTop=event.target.scrollTop; this.listViewportHeight=event.target.clientHeight; },
+		resetListScroll(){ this.listScrollTop=0; this.$nextTick(()=>{ if(this.$refs.virtualList) this.$refs.virtualList.scrollTop=0; }); },
 		selectVideo(video) {
 			this.currentVideo = video;
 			localStorage.setItem('video-player:last-video', video);
@@ -95,6 +118,7 @@ Vue.createApp({
 			});
 			this.videos = response2.data;
 			this.token = response2.headers["token"];
+			this.loadSavedProgress();
 			const lastVideo = localStorage.getItem('video-player:last-video');
 			if(this.videos.includes(lastVideo)) this.currentVideo = lastVideo;
 			} catch(error) {
@@ -105,17 +129,34 @@ Vue.createApp({
 		displayName(video){ return String(video || '').replace(/\.[^.]+$/, ''); },
 		clearSearch(){ this.keyword = ''; this.$refs.searchInput?.focus(); },
 		savePosition(){
-			if(this.player && this.currentVideo) localStorage.setItem(`video-player:position:${this.currentVideo}`, this.player.currentTime());
+			if(!this.player || !this.currentVideo) return;
+			const position=this.player.currentTime(), duration=this.player.duration();
+			if(!Number.isFinite(position) || !Number.isFinite(duration) || duration<=0) return;
+			const progress={position,duration};
+			this.progressByVideo[this.currentVideo]=progress;
+			this.currentProgress=Math.min(100,Math.round(position/duration*100));
+			localStorage.setItem(`video-player:progress:${this.currentVideo}`,JSON.stringify(progress));
 		},
+		progressPercent(video){ const value=this.progressByVideo[video]; return value?.duration ? Math.min(100,Math.round(value.position/value.duration*100)) : 0; },
+		loadSavedProgress(){
+			const progress={};
+			this.videos.forEach(video=>{ try { const value=JSON.parse(localStorage.getItem(`video-player:progress:${video}`)); if(value?.duration) progress[video]=value; } catch(error){} });
+			this.progressByVideo=progress;
+		},
+		playNext(){ if(this.nextVideo) this.selectVideo(this.nextVideo); },
 
 	},
 	watch:{
+		keyword(){ this.resetListScroll(); },
+		autoPlayNext(value){ localStorage.setItem('video-player:auto-next',String(value)); },
 		currentVideo(value){
 			if(!value || !this.token) return;
+			this.currentProgress=this.progressPercent(value);
+			this.errorMessage='';
 			this.player.src({type:'video/mp4', src:`${context}/play/${encodeURIComponent(this.token)}/${encodeURIComponent(value)}`});
 			this.player.one("loadedmetadata", ()=>{
 				this.duration = this.player.duration();
-				const saved = Number(localStorage.getItem(`video-player:position:${value}`));
+				const saved = this.progressByVideo[value]?.position || Number(localStorage.getItem(`video-player:position:${value}`));
 				if(saved > 0 && saved < this.duration - 5) this.player.currentTime(saved);
 				this.player.play().catch(()=>{});
 			});
@@ -156,6 +197,8 @@ Vue.createApp({
 		});
 		window.addEventListener("keydown", this.keyHandler);
 		this.player.on('timeupdate', _.throttle(this.savePosition, 3000));
+		this.player.on('ended', ()=>{ this.savePosition(); if(this.autoPlayNext) this.playNext(); });
+		this.player.on('error', ()=>{ this.errorMessage='영상을 재생할 수 없습니다. 파일 상태를 확인하거나 다른 영상을 선택해 주세요.'; });
 		window.addEventListener('beforeunload', this.savePosition);
 	},
 	updated(){}
