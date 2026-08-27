@@ -126,7 +126,15 @@ Vue.createApp({
 			} finally { this.loading = false; }
 		},
 		async logout(){ await signOut(this.auth); },
-		displayName(video){ return String(video || '').replace(/\.[^.]+$/, ''); },
+		displayName(video){
+			return String(video || '')
+				.replace(/\.[^.]+$/, '')
+				.replace(/(^|[^\d])(?:19|20)\d{2}[._-]?(?:0[1-9]|1[0-2])[._-]?(?:0[1-9]|[12]\d|3[01])(?=$|[^\d])/g, '$1')
+				.replace(/(?:19|20)\d{2}년\s*(?:0?[1-9]|1[0-2])월\s*(?:0?[1-9]|[12]\d|3[01])일/g, '')
+				.replace(/\(\s*\)|\[\s*\]/g, '')
+				.replace(/^[\s._-]+|[\s._-]+$/g, '')
+				.replace(/\s{2,}/g, ' ');
+		},
 		clearSearch(){ this.keyword = ''; this.$refs.searchInput?.focus(); },
 		savePosition(){
 			if(!this.player || !this.currentVideo) return;
