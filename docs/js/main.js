@@ -15,7 +15,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.2/firebas
 import { getAnalytics } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-analytics.js'
 
 // Add Firebase products that you want to use
-import { GithubAuthProvider, getAuth, signInWithPopup } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js'
+import { GithubAuthProvider, browserLocalPersistence, getAuth, onAuthStateChanged, setPersistence, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js'
 import { getFirestore } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js'
 
 
@@ -34,18 +34,23 @@ Vue.createApp({
 			auth:null,
 			user:null,
 			token:null,
+			authReady:false,
+			loading:false,
+			errorMessage:"",
+			playbackRate:1,
 		};
 	},
 	computed:{
 		searchResults() {
 			if(this.keyword.length == 0) return this.videos;
-			var keyword = this.keyword.toLowerCase();
-			return this.videos.filter(video=>video.toLowerCase().indexOf(keyword) >= 0);
+			const keyword = this.keyword.normalize('NFKC').toLocaleLowerCase('ko-KR').replace(/\s+/g, ' ').trim();
+			return this.videos.filter(video=>video.normalize('NFKC').toLocaleLowerCase('ko-KR').includes(keyword));
 		},
 	},
 	methods:{
-		selectVideo(index) {
-			this.currentVideo = this.searchResults[index];
+		selectVideo(video) {
+			this.currentVideo = video;
+			localStorage.setItem('video-player:last-video', video);
 		},
 		ss() {
 			this.player.currentTime(0);
@@ -57,6 +62,7 @@ Vue.createApp({
 			this.player.currentTime(this.player.currentTime() - value);
 		},
 		speed(value) {
+			this.playbackRate = value;
 			this.player.playbackRate(value);
 		},
 		keyHandler:_.throttle(function(e){
@@ -68,28 +74,50 @@ Vue.createApp({
 			};
 		}, 100),
 		async githubSignIn(){
-			const response = await signInWithPopup(this.auth, this.provider);
-			//console.log(response.user.reloadUserInfo.screenName);
-			//console.log(response.user);
-			this.user = response.user;
-
+			this.loading = true;
+			this.errorMessage = '';
+			try {
+				await setPersistence(this.auth, browserLocalPersistence);
+				await signInWithPopup(this.auth, this.provider);
+			} catch(error) {
+				if(error.code !== 'auth/popup-closed-by-user') this.errorMessage = '로그인하지 못했습니다. 다시 시도해 주세요.';
+			} finally { this.loading = false; }
+		},
+		async loadVideos(){
+			if(!this.user) return;
+			this.loading = true;
+			this.errorMessage = '';
+			try {
 			const response2 = await axios.get(`${context}/data`, {
 				headers:{
-					//user:response.user.reloadUserInfo.screenName
-					user:response.user.providerData[0].uid
+					user:this.user.providerData[0]?.uid || this.user.uid
 				}
 			});
 			this.videos = response2.data;
 			this.token = response2.headers["token"];
+			const lastVideo = localStorage.getItem('video-player:last-video');
+			if(this.videos.includes(lastVideo)) this.currentVideo = lastVideo;
+			} catch(error) {
+				this.errorMessage = '영상 목록을 불러오지 못했습니다.';
+			} finally { this.loading = false; }
+		},
+		async logout(){ await signOut(this.auth); },
+		displayName(video){ return String(video || '').replace(/\.[^.]+$/, ''); },
+		clearSearch(){ this.keyword = ''; this.$refs.searchInput?.focus(); },
+		savePosition(){
+			if(this.player && this.currentVideo) localStorage.setItem(`video-player:position:${this.currentVideo}`, this.player.currentTime());
 		},
 
 	},
 	watch:{
 		currentVideo(value){
-			this.player.src({type:'video/mp4', src:`${context}/play/${this.token}/${value}`});
-			this.player.play();
+			if(!value || !this.token) return;
+			this.player.src({type:'video/mp4', src:`${context}/play/${encodeURIComponent(this.token)}/${encodeURIComponent(value)}`});
 			this.player.one("loadedmetadata", ()=>{
 				this.duration = this.player.duration();
+				const saved = Number(localStorage.getItem(`video-player:position:${value}`));
+				if(saved > 0 && saved < this.duration - 5) this.player.currentTime(saved);
+				this.player.play().catch(()=>{});
 			});
 		},
 	},
@@ -109,6 +137,13 @@ Vue.createApp({
 
 		this.provider = new GithubAuthProvider();
 		this.auth = getAuth();
+		setPersistence(this.auth, browserLocalPersistence).catch(console.warn);
+		onAuthStateChanged(this.auth, async user=>{
+			this.user = user;
+			this.authReady = true;
+			if(user) await this.loadVideos();
+			else { this.videos=[]; this.currentVideo=null; this.token=null; if(this.player) this.player.reset(); }
+		});
 	},
 	mounted(){
 		this.player = videojs("video-player", {
@@ -120,6 +155,8 @@ Vue.createApp({
 			playbackRates:[1,1.2,1.5,2]
 		});
 		window.addEventListener("keydown", this.keyHandler);
+		this.player.on('timeupdate', _.throttle(this.savePosition, 3000));
+		window.addEventListener('beforeunload', this.savePosition);
 	},
 	updated(){}
 }).mount("#app");

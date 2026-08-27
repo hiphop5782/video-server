@@ -2,6 +2,7 @@
 <html>
 <head>
 	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<!-- <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests"> -->
 	<title>Video Player</title>
 	<link rel="icon" type="image/x-icon" href="./image/favicon.ico">
@@ -13,35 +14,37 @@
 	<link rel="stylesheet" type="text/css" href="./css/main.css">
 </head>
 <body>
-	<div id="app" class="container-fluid">
+	<div id="app" class="container-fluid" v-cloak>
 		<div class="d-flex flex-column align-items-stretch flex-shrink-0 bg-white sidebar">
 		    <div class="sidebar-header">
 			    <a href="#" class="d-flex align-items-center flex-shrink-0 p-3 link-dark text-decoration-none border-bottom">
 			    	<img class="bi me-2" width="30" height="24" src="./image/favicon.ico">
 			      	<span class="fs-5 fw-semibold">Video Player</span>
 			    </a>
-			    <div class="row" v-if="this.user != null">
+			    <div class="row" v-if="user != null">
 			    	<div class="col pt-1 pb-1 pe-4">
-			    		<input type="text" class="form-control" placeholder="검색어 입력" autocomplete="off" v-model="keyword" @input="keyword = $event.target.value">
+						<div class="search-wrap"><i class="fa-solid fa-magnifying-glass"></i><input ref="searchInput" type="search" class="form-control" placeholder="영상 검색" autocomplete="off" v-model.trim="keyword"><button v-if="keyword" @click="clearSearch" aria-label="검색어 지우기"><i class="fa-solid fa-xmark"></i></button></div>
+						<div class="list-meta"><span>{{searchResults.length}}개 영상</span><button @click="logout">로그아웃</button></div>
 			    	</div>
 			    </div>
 				<div class="row" v-else>
 					<div class="col pt-1 pb-1 pe-4">
-						<button class="btn btn-outline-primary w-100" @click="githubSignIn">
+						<button class="btn btn-outline-primary w-100" :disabled="loading" @click="githubSignIn">
 							<i class="fa-brands fa-github"></i>
-							Github 로그인
+							{{loading ? '로그인 중…' : 'Github 로그인'}}
 						</button>						
 					</div>
 				</div>
 		    </div>
 <!-- 		    <div class="list-group list-group-flush border-bottom scrollarea" v-for="(video, index) in videos" :key="index"> -->
 			<div class="list-group list-group-flush border-bottom scrollarea" v-for="(video, index) in searchResults" :key="index">
-				<div class="list-group-item list-group-item-action py-3 lh-tight" @click="selectVideo(index)" :class="{active:currentVideo == searchResults[index]}">
-					{{video}}
+				<div class="list-group-item list-group-item-action py-3 lh-tight" @click="selectVideo(video)" :class="{active:currentVideo == video}" :title="video">
+					<i class="fa-regular fa-circle-play me-2"></i>{{displayName(video)}}
 		      	</div>
 		    </div>
 		</div>
 		<div class="video-container">
+			<div v-if="errorMessage" class="alert alert-danger d-flex justify-content-between"><span>{{errorMessage}}</span><button class="btn btn-sm btn-outline-danger" @click="loadVideos">다시 시도</button></div>
 			<video
 			    class="video-js vjs-big-play-centerd vjs-fluid video-player"
 			    id="video-player"
@@ -50,7 +53,7 @@
 			<div class="row mt-4" v-if="currentVideo != null">
 				<div class="col">
 					<h2>
-						{{currentVideo}}
+						{{displayName(currentVideo)}}
 					</h2>
                     <button type="button" class="btn btn-outline-secondary me-2" @click="ss">처음</button>
                     <button type="button" class="btn btn-outline-secondary me-2" @click="rr(10)">-10s</button>
@@ -61,12 +64,13 @@
 			</div>
 			<div class="row mt-2" v-if="currentVideo != null">
 				<div class="col">
-					<button type="button" class="btn btn-outline-secondary me-2" @click="speed(1)">x1</button>
+					<button type="button" class="btn btn-outline-secondary me-2" :class="{active:playbackRate===1}" @click="speed(1)">x1</button>
                     <button type="button" class="btn btn-outline-secondary me-2" @click="speed(1.2)">x1.2</button>
                     <button type="button" class="btn btn-outline-secondary me-2" @click="speed(1.5)">x1.5</button>
                     <button type="button" class="btn btn-outline-secondary me-2" @click="speed(2)">x2</button>
 				</div>
 			</div>
+			<p v-if="currentVideo" class="shortcut-hint mt-3"><kbd>←</kbd> <kbd>→</kbd> 키로 10초 이동</p>
 		</div>
 	</div>
 	

@@ -1,11 +1,15 @@
 @charset "UTF-8";
 
+:root { --accent:#6757e8; --ink:#111827; --muted:#64748b; }
+[v-cloak] { display:none; }
+body { background:linear-gradient(145deg,#f8fafc,#eef2ff); color:var(--ink); }
+
 body {
     overflow-y:scroll;
 }
 .sidebar {
     --bs-gutter-y:1.5rem;
-    width:250px;
+    width:300px;
     padding-top:104px;
 }
 .sidebar-header {
@@ -15,7 +19,7 @@ body {
     z-index:999999;
     top:0;
     left:calc(var(--bs-gutter-x) * .5);
-    width:250px;
+    width:300px;
     background-color:var(--bs-white);
 }
 .list-group-item {
@@ -23,15 +27,11 @@ body {
     overflow:hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    min-width: 250px;
+    min-width: 300px;
     width: auto;
 }
-.list-group:hover > .list-group-item {
-    position: absolute;
-}
-.list-group:hover + .list-group {
-    margin-top: 52px;
-}
+.list-group-item:hover { background:#f1f3ff; color:var(--accent); }
+.list-group-item.active { background:var(--accent); border-color:var(--accent); }
 .video-container {
     --bs-gutter-x:1.5rem;
     --bs-gutter-y:1.5rem;
@@ -39,7 +39,7 @@ body {
     top:calc(var(--bs-gutter-y) * .5);
     right:calc(var(--bs-gutter-x) * .5);
     bottom:calc(var(--bs-gutter-y) * .5);
-    left:calc(var(--bs-gutter-x) + 250px);
+    left:calc(var(--bs-gutter-x) + 300px);
 }
 .video-container .video-player {
     width:100%;
@@ -68,4 +68,20 @@ video.vjs-tech {
     max-height: none !important; /* 풀스크린에서는 최대 높이를 제한하지 않음 */
     width: 100% !important; /* 풀스크린에서도 100% 크기 */
     height: 100% !important; /* 풀스크린에서 높이도 100% */
+}
+
+.search-wrap { position:relative; display:flex; align-items:center; }
+.search-wrap>i { position:absolute; left:12px; color:#94a3b8; z-index:2; }
+.search-wrap input { padding-left:36px; padding-right:34px; border-radius:10px; }
+.search-wrap button { position:absolute; right:8px; border:0; background:transparent; color:#94a3b8; }
+.list-meta { display:flex; justify-content:space-between; padding:8px 3px 0; font-size:12px; color:var(--muted); }
+.list-meta button { border:0; background:transparent; color:inherit; }
+.shortcut-hint { color:var(--muted); font-size:13px; }
+kbd { padding:2px 6px; border:1px solid #cbd5e1; border-radius:5px; background:white; }
+.video-container h2 { overflow-wrap:anywhere; }
+@media(max-width:760px) {
+  .sidebar { width:100%; height:42vh; padding-top:104px; }
+  .sidebar-header { width:calc(100% - 24px); }
+  .list-group-item { min-width:100%; }
+  .video-container { position:relative; left:0; top:42vh; padding:12px; }
 }
