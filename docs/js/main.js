@@ -135,6 +135,7 @@ Vue.createApp({
 				.replace(/^[\s._-]+|[\s._-]+$/g, '')
 				.replace(/\s{2,}/g, ' ');
 		},
+		detailFileName(video){ return String(video || '').replace(/\.[^.]+$/, ''); },
 		clearSearch(){ this.keyword = ''; this.$refs.searchInput?.focus(); },
 		savePosition(){
 			if(!this.player || !this.currentVideo) return;
