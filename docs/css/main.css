@@ -91,16 +91,19 @@ video.vjs-tech {
 .search-wrap button { position:absolute; right:8px; border:0; background:transparent; color:#94a3b8; }
 .list-meta { display:flex; justify-content:space-between; padding:8px 3px 0; font-size:12px; color:var(--muted); }
 .list-meta button { border:0; background:transparent; color:inherit; }
-.shortcut-hint { color:var(--muted); font-size:13px; }
-kbd { padding:2px 6px; border:1px solid #cbd5e1; border-radius:5px; background:white; }
+.shortcut-guide { display:flex; align-items:center; flex-wrap:wrap; gap:12px 22px; padding:13px 16px; border:1px solid #d8def0; border-radius:12px; background:#fff; color:#475569; box-shadow:0 4px 14px rgba(15,23,42,.05); font-size:14px; }
+.shortcut-guide strong { color:var(--ink); margin-right:auto; }
+.shortcut-guide span { white-space:nowrap; }
+kbd { display:inline-grid; place-items:center; min-width:30px; height:28px; margin-right:5px; padding:2px 7px; border:1px solid #aeb8cc; border-bottom-width:3px; border-radius:6px; background:#f8fafc; color:#1e293b; font-weight:700; }
 .video-container h2 { overflow-wrap:anywhere; }
 .player-message { position:absolute; top:30%; left:50%; z-index:2; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:8px; color:var(--muted); text-align:center; pointer-events:none; }
 .player-message i { font-size:44px; color:var(--accent); }
-.progress { height:18px; border-radius:999px; }
-.progress-bar { min-width:2em; background:var(--accent); }
+.top-progress { width:100%; height:7px; margin-bottom:12px; overflow:hidden; background:#dfe4ef; border-radius:999px; }
+.top-progress-bar { height:100%; background:linear-gradient(90deg,#6757e8,#9287ff); border-radius:inherit; transition:width .25s linear; }
 @media(max-width:760px) {
   .sidebar { width:100%; height:42vh; padding-top:104px; }
   .sidebar-header { width:calc(100% - 24px); }
   .list-group-item { min-width:100%; }
   .video-container { position:relative; left:0; top:42vh; padding:12px; }
+	.shortcut-guide strong { width:100%; margin:0; }
 }

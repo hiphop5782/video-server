@@ -52,6 +52,7 @@
 			</div>
 		</div>
 		<div class="video-container">
+			<div v-if="currentVideo" class="top-progress" role="progressbar" aria-label="영상 시청 진행률" :aria-valuenow="currentProgress" aria-valuemin="0" aria-valuemax="100"><div class="top-progress-bar" :style="{width: currentProgress + '%'}"></div></div>
 			<div v-if="errorMessage" class="alert alert-danger d-flex justify-content-between"><span>{{errorMessage}}</span><button class="btn btn-sm btn-outline-danger" @click="loadVideos">다시 시도</button></div>
 			<video
 			    class="video-js vjs-big-play-centerd vjs-fluid video-player"
@@ -80,9 +81,12 @@
 					<button v-if="nextVideo" type="button" class="btn btn-primary me-2" @click="playNext"><i class="fa-solid fa-forward-step me-1"></i>다음 영상</button>
 				</div>
 			</div>
-			<div v-if="currentVideo" class="progress mt-3" role="progressbar" :aria-valuenow="currentProgress" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" :style="{width: currentProgress + '%'}">{{currentProgress}}%</div></div>
 			<div v-if="currentVideo" class="form-check form-switch mt-3"><input id="auto-next" class="form-check-input" type="checkbox" v-model="autoPlayNext"><label class="form-check-label" for="auto-next">영상 종료 후 다음 영상 자동 재생</label></div>
-			<p v-if="currentVideo" class="shortcut-hint mt-3"><kbd>←</kbd> <kbd>→</kbd> 키로 10초 이동</p>
+			<div v-if="currentVideo" class="shortcut-guide mt-3">
+				<strong><i class="fa-regular fa-keyboard me-2"></i>키보드 단축키</strong>
+				<span><kbd>←</kbd> 10초 이전</span>
+				<span><kbd>→</kbd> 10초 이후</span>
+			</div>
 		</div>
 	</div>
 	
