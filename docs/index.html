@@ -11,7 +11,7 @@
 	<link rel="stylesheet" type="text/css" href="https://vjs.zencdn.net/8.0.4/video-js.css">
 	<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/bootswatch/5.2.3/cerulean/bootstrap.min.css">
 	<link rel="stylesheet" type="text/css" href="./css/sidebars.css">
-	<link rel="stylesheet" type="text/css" href="./css/main.css">
+	<link rel="stylesheet" type="text/css" href="./css/main.css?v=20261027-1">
 </head>
 <body>
 	<div id="app" class="container-fluid" v-cloak>
@@ -50,7 +50,8 @@
 				<div class="virtual-spacer" :style="{height: virtualTotalHeight + 'px'}">
 					<div v-for="row in virtualRows" :key="row.video" class="virtual-row" :style="{transform: `translateY(${row.top}px)`}">
 						<button class="list-group-item list-group-item-action lh-tight" @click="selectVideo(row.video)" :class="{active:currentVideo === row.video}" :title="row.video">
-							<i class="fa-regular fa-circle-play me-2"></i><span>{{displayName(row.video)}}</span><small v-if="progressPercent(row.video) > 0">{{progressPercent(row.video)}}%</small>
+							<span v-if="currentVideo === row.video" class="playing-wave" :class="{'is-playing':isPlaying}" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+							<i v-else class="fa-regular fa-circle-play" aria-hidden="true"></i><span class="video-title">{{displayName(row.video)}}</span><small v-if="progressPercent(row.video) > 0">{{progressPercent(row.video)}}%</small>
 							<span v-if="progressPercent(row.video) > 0" class="item-progress" :style="{width: progressPercent(row.video) + '%'}"></span>
 						</button>
 					</div>
@@ -134,6 +135,6 @@
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.2.46/vue.global.min.js"></script>
 	<script src="https://vjs.zencdn.net/8.0.4/video.min.js"></script>
 	<script src="./js/sidebars.js"></script>
-	<script src="./js/main.js" type="module"></script>
+	<script src="./js/main.js?v=20261027-1" type="module"></script>
 </body>
 </html>

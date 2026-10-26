@@ -27,6 +27,7 @@ Vue.createApp({
 			listItemHeight:52,
 			progressByVideo:{},
 			currentProgress:0,
+			isPlaying:false,
 			autoPlayNext:localStorage.getItem('video-player:auto-next') !== 'false',
 			adminOpen:false,
 			adminAuthenticated:false,
@@ -156,6 +157,7 @@ Vue.createApp({
 			this.sessionType=null;
 			this.videos=[];
 			this.currentVideo=null;
+			this.isPlaying=false;
 			if(this.player) this.player.reset();
 		},
 		displayName(video){
@@ -274,6 +276,7 @@ Vue.createApp({
 		autoPlayNext(value){ localStorage.setItem('video-player:auto-next',String(value)); },
 		currentVideo(value){
 			if(!value || !this.signedIn) return;
+			this.isPlaying=false;
 			this.currentProgress=this.progressPercent(value);
 			this.errorMessage='';
 			this.player.src({type:'video/mp4', src:`${context}/api/videos/${encodeURIComponent(value)}`});
@@ -314,13 +317,16 @@ Vue.createApp({
 			autoplay:false,
 			loop:false,
 			preload:"auto",
-			fill:true,
+			fluid:true,
+			aspectRatio:"16:9",
 			playbackRates:[1,1.2,1.5,2]
 		});
 		window.addEventListener("keydown", this.keyHandler);
+		this.player.on('play', ()=>{ this.isPlaying=true; });
+		this.player.on('pause', ()=>{ this.isPlaying=false; });
 		this.player.on('timeupdate', _.throttle(this.savePosition, 3000));
-		this.player.on('ended', ()=>{ this.savePosition(); if(this.autoPlayNext) this.playNext(); });
-		this.player.on('error', ()=>{ this.errorMessage='영상을 재생할 수 없습니다. 파일 상태를 확인하거나 다른 영상을 선택해 주세요.'; });
+		this.player.on('ended', ()=>{ this.isPlaying=false; this.savePosition(); if(this.autoPlayNext) this.playNext(); });
+		this.player.on('error', ()=>{ this.isPlaying=false; this.errorMessage='영상을 재생할 수 없습니다. 파일 상태를 확인하거나 다른 영상을 선택해 주세요.'; });
 		window.addEventListener('beforeunload', this.savePosition);
 	}
 }).mount("#app");
