@@ -1,33 +1,29 @@
 package com.hacademy.video.service;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Collections;
-import java.util.HashMap;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.support.ResourceRegion;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpRange;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.MediaTypeFactory;
-import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StreamUtils;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hacademy.video.configuration.FileProperties;
 import com.hacademy.video.configuration.GithubRestProperties;
@@ -39,222 +35,178 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
-public class GithubRestServiceImpl implements GithubRestService{
-	
-	@Autowired
-	private WebClient webClient;
-	
-	private Map<String, List<GithubCollaboratorVO>> users = Collections.synchronizedMap(new HashMap<>());
-	
-	@Autowired
-	private FileProperties fileProps;
-	
+public class GithubRestServiceImpl implements GithubRestService {
+	private final WebClient webClient;
+	private final ObjectMapper objectMapper;
+	private final FileProperties fileProperties;
+	private final GithubRestProperties githubProperties;
+
+	private volatile Map<String, List<GithubCollaboratorVO>> users = Map.of();
+
+	public GithubRestServiceImpl(
+			@Qualifier("githubWebClient") WebClient webClient,
+			ObjectMapper objectMapper,
+			FileProperties fileProperties,
+			GithubRestProperties githubProperties) {
+		this.webClient = webClient;
+		this.objectMapper = objectMapper;
+		this.fileProperties = fileProperties;
+		this.githubProperties = githubProperties;
+	}
+
 	@PostConstruct
-	public void init() throws JsonMappingException, JsonProcessingException {
+	public void init() {
 		loadCollaborators();
 	}
 
 	@Override
-	public List<GithubCollaboratorVO> loadCollaborators(String repo) throws JsonMappingException, JsonProcessingException {
-		String response = webClient.get()
-			.uri(String.format("/repos/%s/%s/collaborators", "hiphop5782", repo))
-			.retrieve()
-			.bodyToMono(String.class)
-			.block();
-		ObjectMapper mapper = new ObjectMapper();
-		return mapper.readValue(response, new TypeReference<List<GithubCollaboratorVO>>() {});
+	public List<GithubCollaboratorVO> loadCollaborators(String repository) {
+		try {
+			String response = webClient.get()
+					.uri(String.format("/repos/%s/%s/collaborators", githubProperties.getOwner(), repository))
+					.retrieve()
+					.bodyToMono(String.class)
+					.block();
+			if(response == null) {
+				return List.of();
+			}
+			return objectMapper.readValue(response, new TypeReference<List<GithubCollaboratorVO>>() {});
+		}
+		catch(Exception e) {
+			throw new IllegalStateException("GitHub collaborator 조회에 실패했습니다: " + repository, e);
+		}
 	}
-	
-	@Autowired
-	private GithubRestProperties githubProps;
-	
+
 	@Scheduled(cron = "0 0 * * * *")
 	@Override
-	public void loadCollaborators() throws JsonMappingException, JsonProcessingException {
-		users.clear();
-		for(String repositoryName : githubProps.getRepositories()) {
-			List<GithubCollaboratorVO> collaborators = loadCollaborators(repositoryName);
-			users.put(repositoryName, collaborators);
-			log.info("저장소({}) - {} 유저 추가 완료", repositoryName, collaborators.size());
+	public synchronized void loadCollaborators() {
+		if(!githubProperties.isEnabled()) {
+			users = Map.of();
+			log.info("GitHub collaborator 조회가 비활성화되어 있습니다.");
+			return;
 		}
-	}
-	
-	private boolean checkRepository(String repository) {
-		String[] repositories = githubProps.getRepositories();
-		for(String repo : repositories) {
-			if(repo.equals(repository)) {
-				return true;
+		if(githubProperties.getToken() == null || githubProperties.getToken().isBlank()) {
+			users = Map.of();
+			log.warn("GITHUB_TOKEN이 없어 GitHub 로그인을 사용할 수 없습니다.");
+			return;
+		}
+
+		Map<String, List<GithubCollaboratorVO>> refreshed = new LinkedHashMap<>();
+		for(String repository : githubProperties.getRepositories()) {
+			try {
+				List<GithubCollaboratorVO> collaborators = loadCollaborators(repository);
+				refreshed.put(repository, List.copyOf(collaborators));
+				log.info("저장소({}) collaborator {}명 갱신", repository, collaborators.size());
+			}
+			catch(Exception e) {
+				List<GithubCollaboratorVO> previous = users.get(repository);
+				if(previous != null) {
+					refreshed.put(repository, previous);
+				}
+				log.error("저장소({}) collaborator 갱신 실패", repository, e);
 			}
 		}
-		return false;
-	}
-	private boolean checkUser(String repository, String user) {
-//		log.info("users = {}", users.keySet());
-		List<GithubCollaboratorVO> userList = users.get(repository);
-//		log.info("userList = {}", userList);
-		for(GithubCollaboratorVO vo : userList) {
-			System.out.println(vo.getLogin()+", " + user);
-			if(vo.getLogin().equals(user)) {
-				return true; 
-			}
-		}
-		return false;
+		users = Map.copyOf(refreshed);
 	}
 
 	@Override
-	public String[] getRepositoryFiles(String repository, String user) {
-		if(checkRepository(repository) && checkUser(repository, user)) {
-//			log.info("repository = {}, user = {}", repository, user);
-			File directory = new File(fileProps.getPath(), repository);
-			if(directory.exists()) {
-				return directory.list((dir, name)->new File(dir, name).isFile());
-			}
-		}
-		return null;
+	public boolean isConfiguredRepository(String repository) {
+		return repository != null && githubProperties.getRepositories().contains(repository);
 	}
 
 	@Override
-	public String findRepository(String user) {
-		for(String repository : users.keySet()) {
-			//log.info("repository = {}", repository);
-			List<GithubCollaboratorVO> list = users.get(repository);
-			//log.info("user count = {}", list.size());
-			for(GithubCollaboratorVO vo : list) {
-				//log.info("vo = {}", vo);
-				if(vo.getId().equals(user)) {
-					log.info("- user find ... {}/{}", vo.getId(), user);
+	public String findRepository(String githubUserId) {
+		if(githubUserId == null || githubUserId.isBlank()) {
+			return null;
+		}
+		Map<String, List<GithubCollaboratorVO>> snapshot = users;
+		for(String repository : githubProperties.getRepositories()) {
+			for(GithubCollaboratorVO collaborator : snapshot.getOrDefault(repository, List.of())) {
+				if(githubUserId.equals(collaborator.getId())) {
 					return repository;
 				}
 			}
 		}
 		return null;
 	}
-	
-	@Override
-	public String[] findRepositoryVideo(String user) {
-		String repo = findRepository(user);
-		if(repo != null) {
-			File directory = new File(fileProps.getPath(), repo);
-			if(directory.exists()) {
-				return directory.list((dir, name)->new File(dir, name).isFile());
-			}
-		}
-		return null;
-	}
-	
-	@Autowired
-	private org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter handlerAdapter;
-	
-	@Override
-	public ResponseEntity<ResourceRegion> getVideo(HttpHeaders headers, String user, String video) throws IOException {
-		 // --- 디버깅 코드 시작 ---
-	    System.out.println("--- [DEBUG] 실제 요청 시점의 활성화된 컨버터 목록 ---");
-	    handlerAdapter.getMessageConverters().forEach(converter -> {
-	        System.out.println(converter.getClass().getName());
-	    });
-	    System.out.println("----------------------------------------------------");
-	    // --- 디버깅 코드 끝 ---
-		
-		
-		String repo = findRepository(user);
-		System.out.println("repo = " + repo);
-		if(repo == null) 
-			return ResponseEntity.notFound().build();
-		
-		File directory = new File(fileProps.getPath(), repo);
-		File target = new File(directory, video);
-		System.out.println("[directory] "+directory);
-		System.out.println("[target"+ ", "+target.exists()+"] " + target);
-		if(!target.exists())
-			return ResponseEntity.notFound().build();
-		
-		Resource resource = new FileSystemResource(target);	
-		ResourceRegion region = createResourceRegion(resource, headers);
-		
-		// Content-Type 추론
-	    MediaType mediaType = MediaTypeFactory.getMediaType(resource)
-	            .orElse(MediaType.APPLICATION_OCTET_STREAM);
 
-		
-	    return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT)
-	            .header(HttpHeaders.CONTENT_TYPE, mediaType.toString())
-	            .header(HttpHeaders.ACCEPT_RANGES, "bytes")
-	            .header("Access-Control-Allow-Origin", "*")
-	            .header("Access-Control-Expose-Headers", "Content-Range, Accept-Ranges, Content-Length")
-	            .header("Connection", "keep-alive")  // 끊김 방지
-	            .body(region);
+	@Override
+	public String[] findRepositoryVideo(String githubUserId) {
+		String repository = findRepository(githubUserId);
+		return repository == null ? null : getRepositoryVideos(repository);
 	}
-	
-	private ResourceRegion createResourceRegion(
-			Resource resource, HttpHeaders headers) throws IOException {
-		final long chunkSize = 100000L;
+
+	@Override
+	public String[] getRepositoryVideos(String repository) {
+		if(!isConfiguredRepository(repository)) {
+			return new String[0];
+		}
+		Path directory = repositoryDirectory(repository);
+		if(!Files.isDirectory(directory)) {
+			return new String[0];
+		}
+		try(var paths = Files.list(directory)) {
+			List<String> videos = new ArrayList<>();
+			paths.filter(Files::isRegularFile)
+					.map(path -> path.getFileName().toString())
+					.forEach(videos::add);
+			String[] result = videos.toArray(String[]::new);
+			Arrays.sort(result, String.CASE_INSENSITIVE_ORDER);
+			return result;
+		}
+		catch(IOException e) {
+			throw new IllegalStateException("영상 목록을 읽을 수 없습니다: " + repository, e);
+		}
+	}
+
+	@Override
+	public void streamVideo(HttpHeaders headers, HttpServletResponse response, String repository, String video) throws IOException {
+		Path directory = repositoryDirectory(repository);
+		Path target = directory.resolve(video).normalize();
+		if(!target.startsWith(directory) || !Files.isRegularFile(target)) {
+			response.sendError(HttpServletResponse.SC_NOT_FOUND);
+			return;
+		}
+
+		Resource resource = new FileSystemResource(target);
 		long contentLength = resource.contentLength();
-		
+		MediaType mediaType = MediaTypeFactory.getMediaType(resource).orElse(MediaType.APPLICATION_OCTET_STREAM);
 		HttpRange range = headers.getRange().stream().findFirst().orElse(null);
-		if(range != null) {
-			long start = range.getRangeStart(contentLength);
-			long end = range.getRangeEnd(contentLength);
-			long rangeLength = Long.min(chunkSize, end-start+1);
-			return new ResourceRegion(resource, start, rangeLength);
+
+		response.setContentType(mediaType.toString());
+		response.setHeader(HttpHeaders.ACCEPT_RANGES, "bytes");
+		if(range == null) {
+			response.setStatus(HttpServletResponse.SC_OK);
+			response.setHeader(HttpHeaders.CONTENT_LENGTH, String.valueOf(contentLength));
+			try(InputStream inputStream = Files.newInputStream(target);
+					OutputStream outputStream = response.getOutputStream()) {
+				StreamUtils.copy(inputStream, outputStream);
+			}
+			return;
 		}
-		else {
-			long rangeLength = Long.min(chunkSize, contentLength);
-			return new ResourceRegion(resource, 0, rangeLength);
+
+		long start = range.getRangeStart(contentLength);
+		long end = range.getRangeEnd(contentLength);
+		long rangeLength = end - start + 1;
+		response.setStatus(HttpServletResponse.SC_PARTIAL_CONTENT);
+		response.setHeader(HttpHeaders.CONTENT_RANGE, "bytes " + start + "-" + end + "/" + contentLength);
+		response.setHeader(HttpHeaders.CONTENT_LENGTH, String.valueOf(rangeLength));
+		try(InputStream inputStream = Files.newInputStream(target);
+				OutputStream outputStream = response.getOutputStream()) {
+			inputStream.skipNBytes(start);
+			StreamUtils.copyRange(inputStream, outputStream, 0, rangeLength - 1);
 		}
 	}
-	
-	@Override
-	public void getVideo2(HttpHeaders headers, HttpServletResponse response, String user, String video) throws IOException {
-	    String repo = findRepository(user);
-	    if (repo == null) {
-	        response.sendError(HttpServletResponse.SC_NOT_FOUND);
-	        return;
-	    }
 
-	    File directory = new File(fileProps.getPath(), repo);
-	    File target = new File(directory, video);
-	    if (!target.exists()) {
-	        response.sendError(HttpServletResponse.SC_NOT_FOUND);
-	        return;
-	    }
-
-	    Resource resource = new FileSystemResource(target);
-	    long contentLength = resource.contentLength();
-	    MediaType mediaType = MediaTypeFactory.getMediaType(resource).orElse(MediaType.APPLICATION_OCTET_STREAM);
-
-	    HttpRange range = headers.getRange().stream().findFirst().orElse(null);
-
-	    // 응답 헤더 설정
-	    response.setContentType(mediaType.toString());
-	    response.setHeader(HttpHeaders.ACCEPT_RANGES, "bytes");
-
-	    if (range != null) {
-	        // Range 요청 처리
-	        long start = range.getRangeStart(contentLength);
-	        long end = range.getRangeEnd(contentLength);
-	        long rangeLength = end - start + 1;
-
-	        response.setStatus(HttpServletResponse.SC_PARTIAL_CONTENT);
-	        response.setHeader(HttpHeaders.CONTENT_RANGE, "bytes " + start + "-" + end + "/" + contentLength);
-	        response.setHeader(HttpHeaders.CONTENT_LENGTH, String.valueOf(rangeLength));
-
-	        // try-with-resources 구문으로 안전하게 스트림 처리
-	        try (InputStream inputStream = new FileInputStream(target);
-	             OutputStream outputStream = response.getOutputStream()) {
-	            inputStream.skip(start);
-	            StreamUtils.copyRange(inputStream, outputStream, 0, rangeLength - 1);
-	        }
-	    } else {
-	        // 전체 파일 요청 처리
-	        response.setStatus(HttpServletResponse.SC_OK);
-	        response.setHeader(HttpHeaders.CONTENT_LENGTH, String.valueOf(contentLength));
-
-	        // try-with-resources 구문으로 안전하게 스트림 처리
-	        try (InputStream inputStream = new FileInputStream(target);
-	             OutputStream outputStream = response.getOutputStream()) {
-	            StreamUtils.copy(inputStream, outputStream);
-	        }
-	    }
+	private Path repositoryDirectory(String repository) {
+		if(!isConfiguredRepository(repository)) {
+			throw new IllegalArgumentException("허용되지 않은 저장소입니다.");
+		}
+		Path root = Path.of(fileProperties.getPath()).toAbsolutePath().normalize();
+		Path directory = root.resolve(repository).normalize();
+		if(!directory.startsWith(root)) {
+			throw new IllegalArgumentException("잘못된 저장소 경로입니다.");
+		}
+		return directory;
 	}
-	
 }

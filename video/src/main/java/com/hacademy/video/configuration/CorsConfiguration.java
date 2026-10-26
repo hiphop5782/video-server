@@ -10,14 +10,15 @@ public class CorsConfiguration implements WebMvcConfigurer{
 	public void addCorsMappings(CorsRegistry registry) {
 		registry.addMapping("/**")
 					.allowedOrigins(
-							"http://video.sysout.co.kr", 
 							"https://video.sysout.co.kr", 
 							"http://localhost:5500",
 							"http://localhost:5501", 
 							"http://127.0.0.1:5500"		
 					)
-					.allowedMethods("GET", "HEAD", "OPTIONS")
-					.exposedHeaders("Content-Range", "Accept-Ranges", "Content-Length", "token");
+					.allowedMethods("GET", "POST", "DELETE", "HEAD", "OPTIONS")
+					.allowedHeaders("Authorization", "Content-Type")
+					.allowCredentials(true)
+					.exposedHeaders("Content-Range", "Accept-Ranges", "Content-Length");
 	}
 }
 

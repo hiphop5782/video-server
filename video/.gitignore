@@ -32,3 +32,9 @@ build/
 ### VS Code ###
 .vscode/
 /bin/
+
+# Runtime-only secrets and generated data
+application-local.yml
+*.p12
+data/
+.m2-cache/

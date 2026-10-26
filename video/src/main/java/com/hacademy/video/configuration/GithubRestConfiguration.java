@@ -1,6 +1,7 @@
 package com.hacademy.video.configuration;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -12,6 +13,7 @@ public class GithubRestConfiguration {
 	private GithubRestProperties props;
 	
 	@Bean
+	@Qualifier("githubWebClient")
 	public WebClient webClient() {
 //		System.out.println(props);
 //		System.out.println(props.getToken());
