@@ -1,27 +1,10 @@
-
-/*
-if(location.protocol == 'https:') {
-	window.alert('https로 접속하시면 영상이 나오지 않으니 참고 바랍니다');
-	//location.href = location.href.replace('https', 'http');
-	const url = "http" + location.href.substring('https'.length);
-	location.href = url;
-}
-*/
-
-
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js'
-
-// If you enabled Analytics in your project, add the Firebase SDK for Google Analytics
 import { getAnalytics } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-analytics.js'
-
-// Add Firebase products that you want to use
 import { GithubAuthProvider, browserLocalPersistence, getAuth, onAuthStateChanged, setPersistence, signInWithPopup, signOut } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js'
-import { getFirestore } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js'
 
+const context = "https://video-api.sysout.co.kr";
+axios.defaults.withCredentials = true;
 
-// const context = "http://localhost:30000";
-//const context = "http://khds-c.iptime.org:30000";
-const context = "//video-api.sysout.co.kr:30000";
 Vue.createApp({
 	data(){
 		return {
@@ -33,7 +16,8 @@ Vue.createApp({
 			provider:null,
 			auth:null,
 			user:null,
-			token:null,
+			sessionType:null,
+			accessCode:"",
 			authReady:false,
 			loading:false,
 			errorMessage:"",
@@ -44,9 +28,19 @@ Vue.createApp({
 			progressByVideo:{},
 			currentProgress:0,
 			autoPlayNext:localStorage.getItem('video-player:auto-next') !== 'false',
+			adminOpen:false,
+			adminAuthenticated:false,
+			adminPassword:"",
+			adminLoading:false,
+			adminError:"",
+			adminNotice:"",
+			adminRepositories:[],
+			adminGrants:[],
+			grantForm:{code:"",repository:"",description:"",expiresAt:""},
 		};
 	},
 	computed:{
+		signedIn(){ return this.sessionType !== null; },
 		searchResults() {
 			const terms = this.normalizeSearch(this.keyword).split(' ').filter(Boolean);
 			if(!terms.length) return this.videos;
@@ -75,26 +69,19 @@ Vue.createApp({
 			this.currentVideo = video;
 			localStorage.setItem('video-player:last-video', video);
 		},
-		ss() {
-			this.player.currentTime(0);
-		},
-		ff(value){
-			this.player.currentTime(this.player.currentTime() + value);
-		},
-		rr(value){
-			this.player.currentTime(this.player.currentTime() - value);
-		},
+		ss(){ this.player.currentTime(0); },
+		ff(value){ this.player.currentTime(this.player.currentTime() + value); },
+		rr(value){ this.player.currentTime(this.player.currentTime() - value); },
 		speed(value) {
 			this.playbackRate = value;
 			this.player.playbackRate(value);
 		},
 		keyHandler:_.throttle(function(e){
 			if(this.currentVideo == null) return;
-			
 			switch(e.keyCode) {
 				case 37: this.rr(10); break;
 				case 39: this.ff(10); break;
-			};
+			}
 		}, 100),
 		async githubSignIn(){
 			this.loading = true;
@@ -106,26 +93,71 @@ Vue.createApp({
 				if(error.code !== 'auth/popup-closed-by-user') this.errorMessage = '로그인하지 못했습니다. 다시 시도해 주세요.';
 			} finally { this.loading = false; }
 		},
-		async loadVideos(){
-			if(!this.user) return;
+		async establishGithubSession(user){
 			this.loading = true;
 			this.errorMessage = '';
 			try {
-			const response2 = await axios.get(`${context}/data`, {
-				headers:{
-					user:this.user.providerData[0]?.uid || this.user.uid
-				}
-			});
-			this.videos = response2.data;
-			this.token = response2.headers["token"];
+				const idToken = await user.getIdToken();
+				await axios.post(`${context}/api/auth/github`, {}, {headers:{Authorization:`Bearer ${idToken}`}});
+				this.sessionType = 'github';
+				await this.loadVideos();
+			} catch(error) {
+				this.clearViewer();
+				this.errorMessage = this.apiError(error, 'GitHub 접근 권한을 확인하지 못했습니다.');
+			} finally { this.loading = false; }
+		},
+		async accessCodeSignIn(){
+			if(this.accessCode.length < 6) return;
+			this.loading = true;
+			this.errorMessage = '';
+			try {
+				await axios.post(`${context}/api/access/login`, {code:this.accessCode});
+				this.sessionType = 'access-code';
+				this.accessCode = '';
+				await this.loadVideos();
+			} catch(error) {
+				this.clearViewer();
+				this.errorMessage = this.apiError(error, '접근 코드가 올바르지 않거나 만료되었습니다.');
+			} finally { this.loading = false; }
+		},
+		async restoreSession(){
+			try {
+				const response = await axios.get(`${context}/api/videos`);
+				this.sessionType = 'access-code';
+				this.applyVideos(response.data);
+			} catch(error) {
+				if(error.response?.status !== 401) this.errorMessage = '기존 로그인 상태를 확인하지 못했습니다.';
+			}
+		},
+		async loadVideos(){
+			if(!this.signedIn) return;
+			this.loading = true;
+			this.errorMessage = '';
+			try {
+				const response = await axios.get(`${context}/api/videos`);
+				this.applyVideos(response.data);
+			} catch(error) {
+				if(error.response?.status === 401) this.clearViewer();
+				this.errorMessage = this.apiError(error, '영상 목록을 불러오지 못했습니다.');
+			} finally { this.loading = false; }
+		},
+		applyVideos(videos){
+			this.videos = Array.isArray(videos) ? videos : [];
 			this.loadSavedProgress();
 			const lastVideo = localStorage.getItem('video-player:last-video');
 			if(this.videos.includes(lastVideo)) this.currentVideo = lastVideo;
-			} catch(error) {
-				this.errorMessage = '영상 목록을 불러오지 못했습니다.';
-			} finally { this.loading = false; }
 		},
-		async logout(){ await signOut(this.auth); },
+		async logout(){
+			try { await axios.post(`${context}/api/logout`); } catch(error){}
+			if(this.user) await signOut(this.auth);
+			this.clearViewer();
+		},
+		clearViewer(){
+			this.sessionType=null;
+			this.videos=[];
+			this.currentVideo=null;
+			if(this.player) this.player.reset();
+		},
 		displayName(video){
 			return String(video || '')
 				.replace(/\.[^.]+$/, '')
@@ -154,16 +186,97 @@ Vue.createApp({
 			this.progressByVideo=progress;
 		},
 		playNext(){ if(this.nextVideo) this.selectVideo(this.nextVideo); },
-
+		openAdmin(){
+			this.adminOpen=true;
+			this.adminError='';
+			this.adminNotice='';
+			this.loadAdminData();
+		},
+		closeAdmin(){ this.adminOpen=false; },
+		async adminLogin(){
+			this.adminLoading=true;
+			this.adminError='';
+			try {
+				await axios.post(`${context}/api/admin/login`, {password:this.adminPassword});
+				this.adminAuthenticated=true;
+				this.adminPassword='';
+				await this.loadAdminData();
+			} catch(error) {
+				this.adminAuthenticated=false;
+				this.adminError=this.apiError(error,'관리자 로그인에 실패했습니다.');
+			} finally { this.adminLoading=false; }
+		},
+		async adminLogout(){
+			try { await axios.post(`${context}/api/admin/logout`); } catch(error){}
+			this.adminAuthenticated=false;
+			this.adminGrants=[];
+			this.adminRepositories=[];
+		},
+		async loadAdminData(){
+			this.adminLoading=true;
+			this.adminError='';
+			try {
+				const [grants,repositories] = await Promise.all([
+					axios.get(`${context}/api/admin/grants`),
+					axios.get(`${context}/api/admin/repositories`)
+				]);
+				this.adminAuthenticated=true;
+				this.adminGrants=grants.data;
+				this.adminRepositories=repositories.data;
+				if(!this.grantForm.repository && this.adminRepositories.length) this.grantForm.repository=this.adminRepositories[0];
+			} catch(error) {
+				if(error.response?.status === 401) this.adminAuthenticated=false;
+				else this.adminError=this.apiError(error,'접근 권한을 불러오지 못했습니다.');
+			} finally { this.adminLoading=false; }
+		},
+		generateCode(){
+			const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+			const bytes=new Uint32Array(8);
+			crypto.getRandomValues(bytes);
+			const value=Array.from(bytes,n=>alphabet[n%alphabet.length]).join('');
+			this.grantForm.code=`TEMP-${value.slice(0,4)}-${value.slice(4)}`;
+		},
+		async createGrant(){
+			this.adminLoading=true;
+			this.adminError='';
+			this.adminNotice='';
+			const code=this.grantForm.code;
+			try {
+				const expiresAt=this.grantForm.expiresAt ? new Date(this.grantForm.expiresAt).toISOString() : null;
+				await axios.post(`${context}/api/admin/grants`, {
+					code,
+					repository:this.grantForm.repository,
+					description:this.grantForm.description,
+					expiresAt
+				});
+				this.adminNotice=`접근 코드 ${code} 권한을 생성했습니다. 지금 복사해 전달하세요.`;
+				this.grantForm={code:'',repository:this.grantForm.repository,description:'',expiresAt:''};
+				await this.loadAdminData();
+			} catch(error) {
+				this.adminError=this.apiError(error,'접근 권한을 생성하지 못했습니다.');
+			} finally { this.adminLoading=false; }
+		},
+		async deleteGrant(grant){
+			if(!window.confirm(`${grant.repository} 접근 권한을 삭제할까요? 현재 시청 세션도 즉시 종료됩니다.`)) return;
+			this.adminError='';
+			try {
+				await axios.delete(`${context}/api/admin/grants/${grant.id}`);
+				this.adminGrants=this.adminGrants.filter(item=>item.id!==grant.id);
+			} catch(error) {
+				this.adminError=this.apiError(error,'접근 권한을 삭제하지 못했습니다.');
+			}
+		},
+		formatDate(value){ return value ? new Intl.DateTimeFormat('ko-KR',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value)) : '-'; },
+		apiError(error,fallback){ return error.response?.data?.message || fallback; },
 	},
 	watch:{
 		keyword(){ this.resetListScroll(); },
 		autoPlayNext(value){ localStorage.setItem('video-player:auto-next',String(value)); },
 		currentVideo(value){
-			if(!value || !this.token) return;
+			if(!value || !this.signedIn) return;
 			this.currentProgress=this.progressPercent(value);
 			this.errorMessage='';
-			this.player.src({type:'video/mp4', src:`${context}/play/${encodeURIComponent(this.token)}/${encodeURIComponent(value)}`});
+			this.player.src({type:'video/mp4', src:`${context}/api/videos/${encodeURIComponent(value)}`});
 			this.player.one("loadedmetadata", ()=>{
 				this.duration = this.player.duration();
 				const saved = this.progressByVideo[value]?.position || Number(localStorage.getItem(`video-player:position:${value}`));
@@ -184,16 +297,15 @@ Vue.createApp({
 		};
 
 		const app = initializeApp(firebaseConfig);
-		const analytics = getAnalytics(app);
-
+		getAnalytics(app);
 		this.provider = new GithubAuthProvider();
 		this.auth = getAuth();
 		setPersistence(this.auth, browserLocalPersistence).catch(console.warn);
 		onAuthStateChanged(this.auth, async user=>{
 			this.user = user;
 			this.authReady = true;
-			if(user) await this.loadVideos();
-			else { this.videos=[]; this.currentVideo=null; this.token=null; if(this.player) this.player.reset(); }
+			if(user) await this.establishGithubSession(user);
+			else if(!this.sessionType) await this.restoreSession();
 		});
 	},
 	mounted(){
@@ -210,6 +322,5 @@ Vue.createApp({
 		this.player.on('ended', ()=>{ this.savePosition(); if(this.autoPlayNext) this.playNext(); });
 		this.player.on('error', ()=>{ this.errorMessage='영상을 재생할 수 없습니다. 파일 상태를 확인하거나 다른 영상을 선택해 주세요.'; });
 		window.addEventListener('beforeunload', this.savePosition);
-	},
-	updated(){}
+	}
 }).mount("#app");

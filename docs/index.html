@@ -17,29 +17,35 @@
 	<div id="app" class="container-fluid" v-cloak>
 		<div class="d-flex flex-column align-items-stretch flex-shrink-0 bg-white sidebar">
 		    <div class="sidebar-header">
-			    <a href="#" class="d-flex align-items-center flex-shrink-0 p-3 link-dark text-decoration-none border-bottom">
+			    <div class="d-flex align-items-center flex-shrink-0 p-3 border-bottom">
 			    	<img class="bi me-2" width="30" height="24" src="./image/favicon.ico">
-			      	<span class="fs-5 fw-semibold">Video Player</span>
-			    </a>
-			    <div class="row" v-if="user != null">
+					<span class="fs-5 fw-semibold flex-grow-1">Video Player</span>
+					<button type="button" class="btn btn-sm btn-outline-secondary" @click="openAdmin" title="접근 권한 관리"><i class="fa-solid fa-gear"></i></button>
+			    </div>
+			    <div class="row" v-if="signedIn">
 			    	<div class="col pt-1 pb-1 pe-4">
 						<div class="search-wrap"><i class="fa-solid fa-magnifying-glass"></i><input ref="searchInput" type="search" class="form-control" placeholder="영상 검색" autocomplete="off" v-model.trim="keyword"><button v-if="keyword" @click="clearSearch" aria-label="검색어 지우기"><i class="fa-solid fa-xmark"></i></button></div>
-						<div class="list-meta"><span>{{searchResults.length}}개 영상</span><button @click="logout">로그아웃</button></div>
+						<div class="list-meta"><span>{{searchResults.length}}개 영상 · {{sessionType === 'github' ? 'GitHub' : '접근 코드'}}</span><button @click="logout">로그아웃</button></div>
 			    	</div>
 			    </div>
 				<div class="row" v-else>
-					<div class="col pt-1 pb-1 pe-4">
+					<div class="col pt-2 pb-2 pe-4 login-options">
 						<button class="btn btn-outline-primary w-100" :disabled="loading" @click="githubSignIn">
 							<i class="fa-brands fa-github"></i>
 							{{loading ? '로그인 중…' : 'Github 로그인'}}
-						</button>						
+						</button>
+						<div class="login-divider"><span>또는</span></div>
+						<form @submit.prevent="accessCodeSignIn">
+							<div class="input-group"><input class="form-control" type="password" v-model.trim="accessCode" placeholder="접근 코드" autocomplete="one-time-code"><button class="btn btn-primary" :disabled="loading || accessCode.length < 6">보기</button></div>
+						</form>
+						<small class="text-danger" v-if="errorMessage">{{errorMessage}}</small>
 					</div>
 				</div>
 		    </div>
 <!-- 		    <div class="list-group list-group-flush border-bottom scrollarea" v-for="(video, index) in videos" :key="index"> -->
-			<div v-if="user && loading" class="list-message"><span class="spinner-border spinner-border-sm"></span> 영상 목록을 불러오는 중입니다</div>
-			<div v-else-if="user && videos.length === 0" class="list-message"><i class="fa-regular fa-folder-open"></i><strong>조회된 영상이 없습니다</strong><small>잠시 후 다시 시도하거나 관리자에게 문의해 주세요.</small><button class="btn btn-sm btn-outline-primary" @click="loadVideos">다시 조회</button></div>
-			<div v-else-if="user && searchResults.length === 0" class="list-message"><i class="fa-solid fa-magnifying-glass"></i><strong>검색 결과가 없습니다</strong><small>다른 검색어로 찾아보세요.</small><button class="btn btn-sm btn-outline-secondary" @click="clearSearch">검색 초기화</button></div>
+			<div v-if="signedIn && loading" class="list-message"><span class="spinner-border spinner-border-sm"></span> 영상 목록을 불러오는 중입니다</div>
+			<div v-else-if="signedIn && videos.length === 0" class="list-message"><i class="fa-regular fa-folder-open"></i><strong>조회된 영상이 없습니다</strong><small>잠시 후 다시 시도하거나 관리자에게 문의해 주세요.</small><button class="btn btn-sm btn-outline-primary" @click="loadVideos">다시 조회</button></div>
+			<div v-else-if="signedIn && searchResults.length === 0" class="list-message"><i class="fa-solid fa-magnifying-glass"></i><strong>검색 결과가 없습니다</strong><small>다른 검색어로 찾아보세요.</small><button class="btn btn-sm btn-outline-secondary" @click="clearSearch">검색 초기화</button></div>
 			<div v-else class="virtual-list" ref="virtualList" @scroll="handleListScroll">
 				<div class="virtual-spacer" :style="{height: virtualTotalHeight + 'px'}">
 					<div v-for="row in virtualRows" :key="row.video" class="virtual-row" :style="{transform: `translateY(${row.top}px)`}">
@@ -57,9 +63,10 @@
 			<video
 			    class="video-js vjs-big-play-centerd vjs-fluid video-player"
 			    id="video-player"
+				crossorigin="use-credentials"
 			    poster="./image/hacademy.png"
 			  ></video>
-			<div v-if="user && !loading && !currentVideo && videos.length" class="player-message"><i class="fa-regular fa-circle-play"></i><strong>재생할 영상을 선택해 주세요</strong><span>왼쪽 목록에서 원하는 영상을 고를 수 있습니다.</span></div>
+			<div v-if="signedIn && !loading && !currentVideo && videos.length" class="player-message"><i class="fa-regular fa-circle-play"></i><strong>재생할 영상을 선택해 주세요</strong><span>왼쪽 목록에서 원하는 영상을 고를 수 있습니다.</span></div>
 			<div class="row mt-4" v-if="currentVideo != null">
 				<div class="col">
 					<h2>
@@ -87,6 +94,36 @@
 				<span><kbd>←</kbd> 10초 이전</span>
 				<span><kbd>→</kbd> 10초 이후</span>
 			</div>
+		</div>
+
+		<div class="admin-backdrop" v-if="adminOpen" @click.self="closeAdmin">
+			<section class="admin-panel" role="dialog" aria-modal="true" aria-label="접근 권한 관리">
+				<header><div><small>Video Server</small><h3>접근 권한 관리</h3></div><button class="btn-close" @click="closeAdmin" aria-label="닫기"></button></header>
+				<div v-if="!adminAuthenticated" class="admin-login">
+					<p>서버에 설정한 관리자 비밀번호를 입력하세요.</p>
+					<form @submit.prevent="adminLogin"><div class="input-group"><input class="form-control" type="password" v-model="adminPassword" placeholder="관리자 비밀번호" autocomplete="current-password"><button class="btn btn-primary" :disabled="adminLoading">로그인</button></div></form>
+					<div class="text-danger mt-2" v-if="adminError">{{adminError}}</div>
+				</div>
+				<div v-else class="admin-content">
+					<div class="admin-toolbar"><p>임시 코드를 만들거나 기존 권한을 즉시 삭제할 수 있습니다.</p><button class="btn btn-sm btn-outline-secondary" @click="adminLogout">관리자 로그아웃</button></div>
+					<div class="alert alert-success" v-if="adminNotice">{{adminNotice}}</div>
+					<form class="grant-form" @submit.prevent="createGrant">
+						<label>접근 코드<div class="input-group"><input class="form-control" v-model.trim="grantForm.code" minlength="6" maxlength="128" required><button class="btn btn-outline-secondary" type="button" @click="generateCode">자동 생성</button></div></label>
+						<label>저장소<select class="form-select" v-model="grantForm.repository" required><option disabled value="">선택</option><option v-for="repository in adminRepositories" :key="repository" :value="repository">{{repository}}</option></select></label>
+						<label>만료 시각 <small>(비워두면 삭제할 때까지 유지)</small><input class="form-control" type="datetime-local" v-model="grantForm.expiresAt"></label>
+						<label>설명<input class="form-control" v-model.trim="grantForm.description" maxlength="200" placeholder="누구에게 발급했는지"></label>
+						<div class="grant-form-actions"><span class="text-danger" v-if="adminError">{{adminError}}</span><button class="btn btn-primary" :disabled="adminLoading">권한 생성</button></div>
+					</form>
+					<div class="grant-list">
+						<div v-if="adminLoading" class="text-secondary">불러오는 중…</div>
+						<div v-else-if="adminGrants.length === 0" class="empty-grants">생성된 접근 권한이 없습니다.</div>
+						<article v-for="grant in adminGrants" :key="grant.id" class="grant-item" :class="{expired:!grant.active}">
+							<div><strong>{{grant.repository}}</strong><span>{{grant.description || '설명 없음'}}</span><small>생성 {{formatDate(grant.createdAt)}} · 만료 {{grant.expiresAt ? formatDate(grant.expiresAt) : '없음'}}<template v-if="grant.lastUsedAt"> · 최근 사용 {{formatDate(grant.lastUsedAt)}}</template></small></div>
+							<button class="btn btn-sm btn-outline-danger" @click="deleteGrant(grant)">삭제</button>
+						</article>
+					</div>
+				</div>
+			</section>
 		</div>
 	</div>
 	
