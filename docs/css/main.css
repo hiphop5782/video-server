@@ -10,17 +10,16 @@ body {
 .sidebar {
     --bs-gutter-y:1.5rem;
 	width:var(--sidebar-width);
-    padding-top:104px;
+	padding-top:0;
 	height:100vh;
 	overflow:hidden;
 }
 .sidebar-header {
     --bs-gutter-x:1.5rem;
     --bs-gutter-y:1.5rem;
-    position:fixed;
-    z-index:999999;
-    top:0;
-    left:calc(var(--bs-gutter-x) * .5);
+	position:relative;
+	z-index:2;
+	flex:0 0 auto;
 	width:var(--sidebar-width);
     background-color:var(--bs-white);
 }
@@ -161,8 +160,8 @@ kbd { display:inline-grid; place-items:center; min-width:30px; height:28px; marg
 .grant-item small { color:var(--muted); }
 .grant-item.expired { opacity:.55; background:#f8fafc; }
 @media(max-width:900px) {
-  .sidebar { width:100%; height:42vh; padding-top:104px; }
-  .sidebar-header { width:calc(100% - 24px); }
+	.sidebar { width:100%; height:42vh; }
+	.sidebar-header { width:100%; }
 	.video-container { position:relative; left:0; right:auto; top:42vh; bottom:auto; overflow:visible; padding:16px 12px 32px; }
 	.video-container .video-js { width:100%; }
 	.shortcut-guide strong { width:100%; margin:0; }
